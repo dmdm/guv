@@ -555,7 +555,7 @@ class WSGIHandler:
 
     def handle_error(self, type, value, tb):
         if not issubclass(type, GreenletExit):
-            self.server.loop.handle_error(self.environ, type, value, tb)
+            self.server.handle_error(self.environ, type, value, tb)
         del tb
         if self.response_length:
             self.close_connection = True
@@ -617,10 +617,13 @@ class WSGIHandler:
         if env.get('HTTP_EXPECT') == '100-continue':
             socket = self.socket
         else:
-            socket = None
+            # socket = None
+            socket = self.socket
         chunked = env.get('HTTP_TRANSFER_ENCODING', '').lower() == 'chunked'
         self.wsgi_input = Input(self.rfile, self.content_length, socket=socket,
                                 chunked_input=chunked)
+        print('################################', self.wsgi_input)
+        traceback.print_stack()
         env['wsgi.input'] = self.wsgi_input
         return env
 

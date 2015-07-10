@@ -8,6 +8,7 @@ import string
 import struct
 import sys
 import time
+from pprint import pprint
 from hashlib import md5, sha1
 
 from . import semaphore, wsgi
@@ -118,8 +119,10 @@ class WebSocketWSGI(object):
 
         try:
             if 'HTTP_SEC_WEBSOCKET_VERSION' in environ:
+                print('HYBI')
                 ws = self._handle_hybi_request(environ)
             elif self.support_legacy_versions:
+                print('LEGACY')
                 ws = self._handle_legacy_request(environ)
             else:
                 raise BadRequest()
@@ -131,6 +134,7 @@ class WebSocketWSGI(object):
                            [('Connection', 'close'), ] + headers)
             return [body]
 
+        print('ENTERING HANDLER')
         try:
             self.handler(ws)
         except socket.error as e:
@@ -143,7 +147,8 @@ class WebSocketWSGI(object):
         return wsgi.ALREADY_HANDLED
 
     def _handle_legacy_request(self, environ):
-        sock = environ['guv.input'].get_socket()
+        #sock = environ['guv.input'].get_socket()
+        sock = environ['wsgi.input'].get_socket()
 
         if 'HTTP_SEC_WEBSOCKET_KEY1' in environ:
             self.protocol_version = 76
@@ -201,7 +206,15 @@ class WebSocketWSGI(object):
         return WebSocket(sock, environ, self.protocol_version)
 
     def _handle_hybi_request(self, environ):
-        sock = environ['guv.input'].get_socket()
+        pprint(environ)
+        try:
+            # If served by guv's WsgiServer
+            sock = environ['wsgi.input'].socket
+        except AttributeError:
+            # If served by gunicorn
+            # environ['wsgi.input'] is then set by gunicorn to
+            # gunicorn.http.body.Body
+            sock = environ['gunicorn.socket']
         hybi_version = environ['HTTP_SEC_WEBSOCKET_VERSION']
         if hybi_version not in ('8', '13', ):
             raise BadRequest(status='426 Upgrade Required',
